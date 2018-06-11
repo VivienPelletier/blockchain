@@ -11,8 +11,8 @@ type public_key = {
 
 val generate_keys : unit -> private_key * public_key
 
-val encrypt : public_key -> string -> string
-val decrypt : private_key -> string -> string
+val encrypt : public_key -> int -> int
+val decrypt : private_key -> int -> int
 
 type signedMessage = {
     message : string;

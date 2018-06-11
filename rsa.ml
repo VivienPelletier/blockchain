@@ -14,13 +14,17 @@ let primes_list =
     let select x = x > BatInt.pow 2 13 in List.filter select (Primes.primes (BatInt.pow 2 14))
 let primes_count = List.length primes_list
 
-let phi p q = (p-1) * (q-1)
-
 let euclid phin e =
     let rec eucl r u v r2 u2 v2 = 
         if r2 = 0 then (r, u, v)
         else eucl r2 u2 v2 (r - (r/r2)*r2) (u - (r/r2)*u2) (v - (r/r2)*v2) in
     eucl phin 1 0 e 0 1
+
+let phi p q = 
+    let a = p-1 and b = q-1 in
+    let (gcd,_,_) = euclid a b in
+    a*b/gcd
+    
 
 let _ = Random.self_init()
 
@@ -36,15 +40,22 @@ let rec generate_keys () =
     if r = 1 then ({
         p   = p;
         q   = q;
-        d   = if u > 0 then u else v},{
+        d   = if v < 0 then v+phi else v},{
         n   = n;
         e   = e
         })
     else
         generate_keys()
 
-let encrypt k m = m 
-let decrypt k m = m
+let rec powmod (m, e, n, acc) = match e with
+    | 0 -> acc
+    | e -> powmod (m, e-1, n, (acc*m) mod n)
+
+let encrypt k m = 
+    powmod (m, k.e, k.n, 1)
+
+let decrypt k m = 
+    powmod (m, k.d, k.p*k.q, 1)
 
 type signedMessage = {
     message : string;
