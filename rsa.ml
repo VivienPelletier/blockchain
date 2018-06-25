@@ -9,6 +9,8 @@ type public_key = {
   n : big_int; (* primes number product *)
   e : big_int} (* public key exponent *)
 
+type crypted_msg = bytes list
+
 let primes_list = 
   let select x =
     gt_big_int (of_int x) (pow (of_int 2) (of_int 13)) in
@@ -57,9 +59,74 @@ let powmod x e m =
     else powmod (x, pred e, m, mod_big_int (acc*x) m) in
   powmod (x, e, m, one)
 
-let encrypt k m = 
+let encrypt_big_int k m = 
   powmod m k.e k.n
 
-let decrypt k m = 
+let decrypt_big_int k m = 
   powmod m k.d (k.p*k.q)
 
+let bytes_of_big_int big_int2conv = 
+  let rec bytes_of_big_int2 big_int2conv bytes_converted =
+    if lt_big_int big_int2conv (of_int 255) then
+      Bytes.cat 
+        bytes_converted
+        (Bytes.make 1 
+           (char_of_int 
+              (int_of_big_int big_int2conv)))
+    else
+      bytes_of_big_int2 
+        (big_int2conv / (of_int 256))
+        (Bytes.cat 
+           bytes_converted
+           (Bytes.make 1 
+              (char_of_int 
+                 (int_of_big_int
+                    (mod_big_int big_int2conv (of_int 256))))))
+  in
+  bytes_of_big_int2 big_int2conv (Bytes.create 0)
+
+let big_int_of_bytes bytes2conv =
+  let rec big_int_of_bytes2 bytes2conv converted_big_int =
+    if Bytes.length bytes2conv = 0 then
+      converted_big_int
+    else
+      big_int_of_bytes2 
+        (Bytes.sub bytes2conv 1 
+           (Pervasives.pred
+              (Bytes.length bytes2conv)))
+        converted_big_int*(of_int 256) + (of_int(int_of_char (Bytes.get bytes2conv 0)))
+  in
+  big_int_of_bytes2 bytes2conv zero
+
+let encrypt key bytes2encrypt = 
+  let block_bytes_size = Pervasives.(/) (num_bits_big_int key.n) 8 in
+  let rec encrypt_blocks begin_index encrypted_blocks =
+    let encrypt_one_block = fun end_index ->
+      bytes_of_big_int 
+        (encrypt_big_int key 
+           (big_int_of_bytes 
+              (Bytes.sub bytes2encrypt begin_index end_index))) in
+    if begin_index >= Pervasives.(-) (Bytes.length bytes2encrypt) block_bytes_size
+    then 
+      encrypt_one_block 
+        (Pervasives.(-) (Bytes.length bytes2encrypt) begin_index)
+      :: encrypted_blocks
+    else 
+      encrypt_blocks 
+        (Pervasives.(+)  begin_index block_bytes_size) 
+        ((encrypt_one_block block_bytes_size)::encrypted_blocks)
+  in
+  encrypt_blocks 0 []
+
+let decrypt = fun key blocks2decrypt ->
+  let rec decrypt_blocks = fun blocks2decrypt decrypted_bytes ->
+    let decrypt_one_block = fun block ->
+      bytes_of_big_int 
+        (decrypt_big_int key 
+           (big_int_of_bytes block)) 
+    in
+    match blocks2decrypt with
+    | [] -> decrypted_bytes
+    | head::tail -> decrypt_blocks tail (Bytes.cat (decrypt_one_block head) decrypted_bytes)
+  in
+  decrypt_blocks blocks2decrypt (Bytes.create 0)
