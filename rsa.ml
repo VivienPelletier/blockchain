@@ -15,6 +15,7 @@ type crypted_msg = bytes list
 let _ = Random.self_init()
 
 (* prime number generation *)
+(* TODO other pick prime strategy *)
 let primes_list = 
   let select = fun x ->
     gt_big_int (of_int x) (pow (of_int 2) (of_int 13)) in
