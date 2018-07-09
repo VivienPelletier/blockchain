@@ -9,7 +9,7 @@ type public_key = {
   n : big_int; (* primes number product *)
   e : big_int} (* public key exponent *)
 
-type crypted_msg = bytes list
+type cipher = bytes list
 
 (* init random *)
 let _ = Random.self_init()
@@ -62,12 +62,14 @@ let rec generate_keys = fun () ->
     generate_keys()
 
 (* compute x^e [m] *)
-(* TODO replace by lower complexity algorithm *)
 let powmod = fun x e m ->
-  let rec powmod = fun x e m acc ->
-    if equal e zero
-    then acc
-    else powmod x (pred e) m (mod_big_int (acc*x) m) in
+  let rec powmod = fun x e m result ->
+    if le_big_int e zero then result 
+    else powmod
+        (mod_big_int (x*x) m)
+        (shift_right_big_int e 1)
+        m
+        (if gt_big_int (and_big_int e one) zero then (mod_big_int (result*x) m) else result) in
   powmod x e m one
 
 (* encrypt big_integer to big integer *)
